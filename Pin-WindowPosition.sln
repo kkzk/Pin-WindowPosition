@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34525.116
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pin-WindowPosition", "Pin-WindowPosition.csproj", "{135B3E36-5C69-4D97-A02C-7F3A90075CB2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestApp", "..\TestApp\TestApp.csproj", "{6754FEA0-7197-4CF3-8F71-B10B2A77CB32}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{135B3E36-5C69-4D97-A02C-7F3A90075CB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{135B3E36-5C69-4D97-A02C-7F3A90075CB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{135B3E36-5C69-4D97-A02C-7F3A90075CB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{135B3E36-5C69-4D97-A02C-7F3A90075CB2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6754FEA0-7197-4CF3-8F71-B10B2A77CB32}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6754FEA0-7197-4CF3-8F71-B10B2A77CB32}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6754FEA0-7197-4CF3-8F71-B10B2A77CB32}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6754FEA0-7197-4CF3-8F71-B10B2A77CB32}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {661DDD26-202A-43CA-8183-1F18473529D0}
+	EndGlobalSection
+EndGlobal
