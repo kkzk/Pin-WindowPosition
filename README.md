@@ -1,12 +1,15 @@
 # Pin-WindowPosition
 
-ウインドウ名を指定する場合
+ウインドウタイトルを指定する場合
 
 ```
-Pin-WindowPosition <ウインドウ名>
+Pin-WindowPosition <ウインドウタイトル>
 ```
 
-ウインドウ名とexe名を指定する場合
+ウインドウタイトルとexe名を指定する場合
 ```
-Pin-WindowPosition <ウインドウ名> <exe名>
+Pin-WindowPosition <ウインドウタイトル> <exe名>
 ```
+### 制限事項
+
+- ウインドウタイトル、またはウインドウタイトルとexeの名称が複数同時に起動するケースは考慮していません。
