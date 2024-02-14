@@ -5,9 +5,5 @@ namespace Pin_WindowPosition {
         public Form1() {
             InitializeComponent();
         }
-
-        private void notifyIcon1_MouseDoubleClick(object sender, MouseEventArgs e) {
-
-        }
     }
 }

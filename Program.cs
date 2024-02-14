@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Forms;
@@ -14,8 +15,7 @@ namespace Pin_WindowPosition {
         private static string windowName;
         private static string moduleName;
         private static string REGISTRY_KEY = "HKEY_CURRENT_USER\\Software\\kkzk\\Pin-WindowPosition";
-
-        static AutomationElement sourceElement;
+        private static int[] windowRuntimeId = { };
 
         static Form1 mainWindow;
 
@@ -38,7 +38,7 @@ namespace Pin_WindowPosition {
                 moduleName = args[1];
             }
 
-            // フォーカス変更のイベントを監視し、フック対象を見つける
+            // フォーカス変更のイベントを監視する
             Automation.AddAutomationFocusChangedEventHandler(
                 new AutomationFocusChangedEventHandler(ForcusChangedHandler)
                 );
@@ -49,50 +49,61 @@ namespace Pin_WindowPosition {
             Application.Run();
         }
 
-        // ウインドウが開いた時のハンドラ
+        // フォーカス変更時のハンドラ
         private static void ForcusChangedHandler(object sender, AutomationEventArgs e) {
+            AutomationElement windowElement;
             string nameProperty = "";
-            sourceElement = sender as AutomationElement;
+            AutomationElement sourceElement = sender as AutomationElement;
 
+            windowElement = sourceElement;
             if (sourceElement.Current.ControlType != ControlType.Window) {
-                // 親ウインドウを探す
+                // 自分がWindowでない場合は親ウインドウを探す
                 Condition propCondition = new PropertyCondition(
-                AutomationElement.ControlTypeProperty,
+                    AutomationElement.ControlTypeProperty,
                     ControlType.Window);
                 TreeWalker treeWalker = new TreeWalker(propCondition);
 
-                var new_sourceElement = treeWalker.GetParent(sourceElement);
-                if (new_sourceElement != null) {
-                    sourceElement = new_sourceElement;
+                var parent = treeWalker.GetParent(sourceElement);
+                if (parent != null) {
+                    windowElement = parent;
                 }
             }
 
+            // ウインドウタイトルの取得
             try {
-                nameProperty = sourceElement.GetCurrentPropertyValue(AutomationElement.NameProperty) as string;
+                nameProperty = windowElement.GetCurrentPropertyValue(AutomationElement.NameProperty) as string;
             }
             catch(ElementNotAvailableException) {
-                Console.WriteLine("すでに無いので何もしない");
+                Trace.WriteLine("すでに無いので何もしない");
                 return;
             }
 
+            // 実行モジュール名を取得
+            int processId = (int)windowElement.GetCurrentPropertyValue(AutomationElement.ProcessIdProperty);
+            Process process = Process.GetProcessById(processId);
 
             // ウインドウタイトルが一致しない場合は何もしない
             if (nameProperty != windowName) {
-                Console.WriteLine("Open event not handled:{0}", nameProperty);
+                Trace.WriteLine($"Open event not handled: \"{nameProperty}\"({process.MainModule.ModuleName})");
                 return;
             }
 
             // （指定されている場合）モジュール名が一致しない場合は何もしない
-            int processId = (int)sourceElement.GetCurrentPropertyValue(AutomationElement.ProcessIdProperty);
-            Process process = Process.GetProcessById(processId);
             if (moduleName != null) {
                 if (moduleName != process.MainModule.ModuleName) {
                     return;
                 }
             }
-            Console.WriteLine($"Open event handled:{nameProperty} / {process.MainModule.ModuleName}");
+            Trace.WriteLine($"Open event handled: \"{windowName}\"({process.MainModule.ModuleName})");
 
-            mainWindow.notifyIcon1.Text = $"{nameProperty}(captured)";
+            int[] runtimeId = windowElement.GetRuntimeId();
+            if (runtimeId.SequenceEqual(windowRuntimeId)) {
+                // キャプチャ済みなので何もしない
+                Trace.WriteLine("キャプチャ済みなので何もしない");
+                return;
+            }
+            windowRuntimeId = runtimeId;
+            mainWindow.notifyIcon1.Text = $"{windowName}(captured)";
 
             // レジストリにあるウインドウの位置を設定
             string retrievedRect = (string)Microsoft.Win32.Registry.GetValue(REGISTRY_KEY, windowName, null);
@@ -103,66 +114,60 @@ namespace Pin_WindowPosition {
                 double width = Convert.ToDouble(parts[2]);
                 double height = Convert.ToDouble(parts[3]);
                 Rect restoredRect = new Rect(x, y, width, height);
-                Console.WriteLine($"Restored Rect: {restoredRect}");
+                Trace.WriteLine($"Restored Rect: {restoredRect}");
                 
-                
-                TransformPattern transformPattern = sourceElement.GetCurrentPattern(TransformPattern.Pattern) as TransformPattern;
+                TransformPattern transformPattern = windowElement.GetCurrentPattern(TransformPattern.Pattern) as TransformPattern;
                 if (transformPattern != null) {
                     if (transformPattern.Current.CanMove) {
                         try {
                             transformPattern.Move(x, y);
-                           Console.WriteLine("移動しました");
+                            Trace.WriteLine("移動しました");
                         }
                         catch (InvalidOperationException) {
-                            Console.WriteLine("移動できません");
+                            Trace.WriteLine("移動できません");
                             return;
                         }
                     }
                     else {
-                        Console.WriteLine("移動できないウインドウです");
+                        Trace.WriteLine("移動できないウインドウです");
                         return;
                     }
                 }
             }
 
+            // 移動したときのイベントハンドラを設定
             try {
-                // 移動したときのイベントハンドラを設定
                 Automation.AddAutomationPropertyChangedEventHandler(
-                    sourceElement,
+                    windowElement,
                     TreeScope.Element,
                     propChangeHandler = new AutomationPropertyChangedEventHandler(OnPropertyChange),
                     AutomationElement.BoundingRectangleProperty);
             }
             catch(ElementNotAvailableException) {
-                Console.WriteLine("移動したときのハンドラを設定できませんでした");
+                Trace.WriteLine("移動したときのハンドラを設定できませんでした");
                 return;
             }
 
+            // 閉じたときのイベントハンドラを設定
             try {
-                // 閉じたときのハンドラを設定
-                Automation.AddAutomationEventHandler(WindowPattern.WindowClosedEvent,
-                    sourceElement,
+                Automation.AddAutomationEventHandler(
+                    WindowPattern.WindowClosedEvent,
+                    windowElement,
                     TreeScope.Element,
-                    closeEventHandler = new AutomationEventHandler(HandleCloseEvent));
+                    new AutomationEventHandler(OnWindowClosed));
             }
-            catch (ElementNotAvailableException) {
-                Console.WriteLine("閉じたときのハンドラを設定できませんでした");
+            catch(ElementNotAvailableException) {
+                Trace.WriteLine("閉じたときのハンドラを設定できませんでした");
+                return;
             }
+
         }
 
-        private static void HandleCloseEvent(object sender, AutomationEventArgs e) {
-            WindowClosedEventArgs eventArgs = e as WindowClosedEventArgs;
-            // AutomationElement sourceElement = sender as AutomationElement;
-            // string window_title = sourceElement.GetCurrentPropertyValue(AutomationElement.NameProperty) as string;
-            Console.WriteLine("Close event:" + eventArgs.GetRuntimeId().ToString());
-            //Automation.RemoveAllEventHandlers();
-            //SetRootHandler();
-        }
 
         private static void OnPropertyChange(object src, AutomationPropertyChangedEventArgs e) {
             AutomationElement sourceElement = src as AutomationElement;
             if (e.Property == AutomationElement.BoundingRectangleProperty) {
-                Console.WriteLine("BoundingRectangleProperty:{0}", e.NewValue);
+                Trace.WriteLine($"BoundingRectangleProperty:{e.NewValue}" );
 
                 try {
                     object boundingRectNoDefault =
@@ -171,7 +176,7 @@ namespace Pin_WindowPosition {
                         // TODO Handle the case where you do not wish to proceed using the default value.
                     } else {
                         // レジストリにウインドウの位置を保存
-                        Rect rect = (System.Windows.Rect)boundingRectNoDefault;
+                        Rect rect = (Rect)boundingRectNoDefault;
                         string serializedRect = $"{rect.X},{rect.Y},{rect.Width},{rect.Height}";
                         Microsoft.Win32.Registry.SetValue(REGISTRY_KEY, windowName, serializedRect);
                     }
@@ -180,8 +185,19 @@ namespace Pin_WindowPosition {
                     return;
                 }
 
-            } else {
-                // TODO: Handle other property-changed events.
+            }
+        }
+
+        private static void OnWindowClosed(object src, AutomationEventArgs e) {
+            WindowClosedEventArgs windowClosedEventArgs = e as WindowClosedEventArgs;
+            int[] runtimeId = windowClosedEventArgs.GetRuntimeId();
+            if (runtimeId.SequenceEqual(windowRuntimeId)) {
+                windowRuntimeId = new int[] { };
+                mainWindow.notifyIcon1.Text = $"{windowName}";
+                Trace.WriteLine("ウインドウが閉じました");
+            }
+            else {
+                Trace.WriteLine("間違ったウインドウを閉じています");
             }
         }
     }
